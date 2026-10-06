@@ -71,9 +71,7 @@ async def list_jobs(stage: Optional[str] = None):
     if stage:
         migrated = migrate_stage(stage)
         if migrated in STAGES:
-            old_names = [
-                k for k, v in STAGE_MIGRATION.items() if v == migrated
-            ]
+            old_names = [k for k, v in STAGE_MIGRATION.items() if v == migrated]
             query["stage"] = {"$in": [migrated] + old_names}
     docs = await db.jobs.find(query, {"_id": 0}).to_list(1000)
     jobs = [serialize_job(d) for d in docs]
@@ -130,13 +128,7 @@ async def call_today():
     needs_scheduling.sort(key=lambda j: j["days_waiting"], reverse=True)
     gone_quiet.sort(key=lambda j: j["days_since_contact"], reverse=True)
 
-    total = (
-        len(new_requests)
-        + len(pending_quotes)
-        + len(needs_scheduling)
-        + len(todays_visits)
-        + len(gone_quiet)
-    )
+    total = len(new_requests) + len(pending_quotes) + len(needs_scheduling) + len(todays_visits) + len(gone_quiet)
     return {
         "new_requests": new_requests,
         "pending_quotes": pending_quotes,
@@ -235,9 +227,7 @@ async def create_quote(job_id: str, payload: QuoteCreate):
 async def update_quote(job_id: str, payload: QuoteUpdate):
     doc = await get_job_or_404(job_id)
     if not doc.get("quote"):
-        raise HTTPException(
-            status_code=400, detail="No quote exists for this job"
-        )
+        raise HTTPException(status_code=400, detail="No quote exists for this job")
     updates = {}
     for k, v in payload.model_dump(exclude_none=True).items():
         updates[f"quote.{k}"] = v.strip() if isinstance(v, str) else v
@@ -251,9 +241,7 @@ async def update_quote(job_id: str, payload: QuoteUpdate):
 async def send_quote(job_id: str):
     doc = await get_job_or_404(job_id)
     if not doc.get("quote"):
-        raise HTTPException(
-            status_code=400, detail="No quote exists for this job"
-        )
+        raise HTTPException(status_code=400, detail="No quote exists for this job")
     n = now_utc()
     await db.jobs.update_one(
         {"id": job_id},
@@ -274,9 +262,7 @@ async def send_quote(job_id: str):
 async def accept_quote(job_id: str):
     doc = await get_job_or_404(job_id)
     if not doc.get("quote"):
-        raise HTTPException(
-            status_code=400, detail="No quote exists for this job"
-        )
+        raise HTTPException(status_code=400, detail="No quote exists for this job")
     n = now_utc()
     await db.jobs.update_one(
         {"id": job_id},
@@ -297,9 +283,7 @@ async def accept_quote(job_id: str):
 async def reject_quote(job_id: str):
     doc = await get_job_or_404(job_id)
     if not doc.get("quote"):
-        raise HTTPException(
-            status_code=400, detail="No quote exists for this job"
-        )
+        raise HTTPException(status_code=400, detail="No quote exists for this job")
     n = now_utc()
     await db.jobs.update_one(
         {"id": job_id},
@@ -346,9 +330,7 @@ async def create_visit(job_id: str, payload: VisitCreate):
 async def update_visit(job_id: str, payload: VisitUpdate):
     doc = await get_job_or_404(job_id)
     if not doc.get("visit"):
-        raise HTTPException(
-            status_code=400, detail="No visit exists for this job"
-        )
+        raise HTTPException(status_code=400, detail="No visit exists for this job")
     updates = {}
     for k, v in payload.model_dump(exclude_none=True).items():
         updates[f"visit.{k}"] = v.strip() if isinstance(v, str) else v
@@ -436,9 +418,7 @@ async def parse_message(payload: ParseRequest):
         session_id=f"parse-{uuid.uuid4()}",
         system_message=SYSTEM_PROMPT,
     ).with_model("openai", "gpt-4o-mini")
-    prompt = (
-        f"Extract the fields from this message:\n<message>\n{text}\n</message>"
-    )
+    prompt = f"Extract the fields from this message:\n<message>\n{text}\n</message>"
     try:
         raw = await chat.send_message(UserMessage(text=prompt))
         data = extract_json(str(raw))
@@ -464,11 +444,7 @@ async def get_dashboard():
         s = j["stage"]
         if s in by_stage:
             by_stage[s] += 1
-        if (
-            s == "Completed"
-            and j.get("completion")
-            and j["completion"].get("final_amount")
-        ):
+        if s == "Completed" and j.get("completion") and j["completion"].get("final_amount"):
             total_revenue += j["completion"]["final_amount"]
         if s in (
             "Quote Sent",
@@ -538,9 +514,7 @@ async def get_dashboard():
             insight_text = raw.strip()
         except Exception as exc:
             logger.error(f"Dashboard insight failed: {exc}")
-            insight_text = (
-                "Could not generate insights right now. Check back shortly."
-            )
+            insight_text = "Could not generate insights right now. Check back shortly."
     else:
         insight_text = "No active jobs right now — you're all caught up!"
 
@@ -671,9 +645,7 @@ async def seed_jobs():
             "stage": "Quote Accepted",
             "created_at": ago(2),
             "last_contact_at": ago(0, 2),
-            "contacts": [
-                {"kind": "call", "detail": "Approved quote", "at": ago(0, 2)}
-            ],
+            "contacts": [{"kind": "call", "detail": "Approved quote", "at": ago(0, 2)}],
             "quote": {
                 "amount": 620,
                 "description": "Replace thermostat unit and calibrate",

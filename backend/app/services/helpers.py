@@ -19,11 +19,7 @@ def iso(dt: datetime) -> str:
 def serialize_job(doc: dict) -> dict:
     created = doc["created_at"]
     last = doc["last_contact_at"]
-    created_dt = (
-        datetime.fromisoformat(created)
-        if isinstance(created, str)
-        else created
-    )
+    created_dt = datetime.fromisoformat(created) if isinstance(created, str) else created
     last_dt = datetime.fromisoformat(last) if isinstance(last, str) else last
     n = now_utc()
     days_waiting = (n - created_dt).days
@@ -51,8 +47,7 @@ def serialize_job(doc: dict) -> dict:
         "completion": doc.get("completion", None),
         "days_waiting": days_waiting,
         "days_since_contact": days_since_contact,
-        "is_quiet": stage in OPEN_STAGES
-        and secs_since_contact >= QUIET_DAYS * 86400,
+        "is_quiet": stage in OPEN_STAGES and secs_since_contact >= QUIET_DAYS * 86400,
     }
 
 

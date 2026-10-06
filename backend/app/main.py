@@ -24,13 +24,9 @@ app.add_middleware(
 async def on_startup():
     # Migrate old stage names in existing documents
     for old, new in STAGE_MIGRATION.items():
-        result = await db.jobs.update_many(
-            {"stage": old}, {"$set": {"stage": new}}
-        )
+        result = await db.jobs.update_many({"stage": old}, {"$set": {"stage": new}})
         if result.modified_count:
-            logger.info(
-                f"Migrated {result.modified_count} jobs from '{old}' to '{new}'"
-            )
+            logger.info(f"Migrated {result.modified_count} jobs from '{old}' to '{new}'")
     await seed_jobs()
 
 
