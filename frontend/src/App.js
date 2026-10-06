@@ -2,7 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
 import { Sun, Plus, Layers, BarChart3, Calendar } from "lucide-react";
 import { Toaster } from "sonner";
-import CallToday from "@/pages/CallToday";
+import KanbanBoard from "@/pages/KanbanBoard";
 import AddJob from "@/pages/AddJob";
 import AllJobs from "@/pages/AllJobs";
 import JobDetail from "@/pages/JobDetail";
@@ -95,7 +95,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/today" element={<TodayJobs />} />
-              <Route path="/kanban" element={<CallToday />} />
+              <Route path="/kanban" element={<KanbanBoard />} />
               <Route path="/add" element={<AddJob />} />
               <Route path="/jobs" element={<AllJobs />} />
               <Route path="/jobs/:id" element={<JobDetail />} />

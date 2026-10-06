@@ -27,6 +27,14 @@ export const QuickLog = ({ job, onLogged, children }) => {
       await logContact(job.id, t.kind, t.label);
       setOpen(false);
       onLogged?.(t);
+
+      if (t.kind === "email" && job.email) {
+        window.location.href = `mailto:${job.email}`;
+      } else if (t.kind === "call" && job.phone) {
+        window.location.href = `tel:${job.phone}`;
+      } else if (t.kind === "text" && job.phone) {
+        window.location.href = `sms:${job.phone}`;
+      }
     } finally {
       setBusy(null);
     }

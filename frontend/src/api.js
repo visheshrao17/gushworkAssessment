@@ -13,7 +13,8 @@ export const STAGES = [
   "Quote Rejected",
   "Visit Scheduled", 
   "In Progress", 
-  "Completed", 
+  "Completed",
+  "Done",
   "Lost"
 ];
 export const SOURCES = ["phone", "website", "email", "text", "referral", "other"];

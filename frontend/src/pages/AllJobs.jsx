@@ -1,24 +1,29 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Loader2, Layers } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { JobCard } from "../components/JobCard";
 import { STAGES, getJobs, getCounts } from "../api";
 
-const FILTERS = ["All", ...STAGES];
+const FILTERS = ["All", "Action Pending", ...STAGES];
 
 export default function AllJobs() {
   const [filter, setFilter] = useState("All");
   const [jobs, setJobs] = useState(null);
   const [counts, setCounts] = useState(null);
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     try {
+      const isActionPending = filter === "Action Pending";
+      const apiFilter = isActionPending || filter === "All" ? null : filter;
+      
       const [j, c] = await Promise.all([
-        getJobs(filter === "All" ? null : filter),
+        getJobs(apiFilter),
         getCounts(),
       ]);
-      setJobs(j);
+      
+      setJobs(isActionPending ? j.filter(job => job.is_quiet) : j);
       setCounts(c);
     } catch (e) {
       toast.error("Could not load jobs");
@@ -58,7 +63,7 @@ export default function AllJobs() {
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg shadow-sm p-4 text-center">
             <div className="font-heading text-3xl font-bold text-red-700">{counts.quiet}</div>
-            <div className="font-sans text-xs font-semibold text-red-600 uppercase tracking-wider mt-1">Quiet</div>
+            <div className="font-sans text-xs font-semibold text-red-600 uppercase tracking-wider mt-1">Action Pending</div>
           </div>
         </div>
       )}
@@ -68,7 +73,7 @@ export default function AllJobs() {
         {FILTERS.map((f) => (
           <button
             key={f}
-            data-testid={`filter-${f}`}
+            data-testid={`filter-${f.replace(" ", "-")}`}
             onClick={() => {
               setJobs(null); // Show loading
               setFilter(f);
@@ -80,7 +85,8 @@ export default function AllJobs() {
             }`}
           >
             {f}
-            {f !== "All" && counts && counts.by_stage[f] !== undefined ? ` (${counts.by_stage[f]})` : ""}
+            {f === "Action Pending" && counts ? ` (${counts.quiet})` : ""}
+            {f !== "All" && f !== "Action Pending" && counts && counts.by_stage[f] !== undefined ? ` (${counts.by_stage[f]})` : ""}
           </button>
         ))}
       </div>
@@ -94,7 +100,7 @@ export default function AllJobs() {
           <Layers className="mx-auto mb-3 text-zinc-300" size={40} strokeWidth={2} />
           <p className="font-heading font-semibold text-xl text-zinc-800">No jobs here</p>
           <p className="text-sm text-zinc-500 mt-1">
-            {filter === "All" ? "You have no jobs." : `No jobs in stage ${filter}.`}
+            {filter === "All" ? "You have no jobs." : `No jobs matching filter: ${filter}.`}
           </p>
         </div>
       ) : (
