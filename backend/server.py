@@ -555,7 +555,7 @@ async def parse_message(payload: ParseRequest):
     if not text:
         raise HTTPException(status_code=422, detail="Empty text")
     chat = LlmChat(
-        api_key=os.environ["OPENROUTER_API_KEY"],
+        api_key=os.environ.get("OPENROUTER_API_KEY", ""),
         session_id=f"parse-{uuid.uuid4()}",
         system_message=SYSTEM_PROMPT,
     ).with_model("openai", "gpt-4o-mini")
@@ -634,7 +634,7 @@ async def get_dashboard():
             "Be specific with customer names. Include revenue at risk if quotes are stale."
         )
         chat = LlmChat(
-            api_key=os.environ["OPENROUTER_API_KEY"],
+            api_key=os.environ.get("OPENROUTER_API_KEY", ""),
             session_id=f"dashboard-{uuid.uuid4()}",
             system_message=(
                 "You are a smart assistant for an HVAC/Refrigeration business owner. "
