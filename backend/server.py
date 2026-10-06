@@ -14,13 +14,12 @@ from datetime import datetime, timezone, timedelta
 
 from llm import LlmChat, UserMessage
 
-
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ["DB_NAME"]]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -30,8 +29,15 @@ logger = logging.getLogger(__name__)
 
 # ---- Constants ----
 STAGES = [
-    "New", "Quote Draft", "Quote Sent", "Quote Accepted", "Quote Rejected",
-    "Visit Scheduled", "In Progress", "Completed", "Lost",
+    "New",
+    "Quote Draft",
+    "Quote Sent",
+    "Quote Accepted",
+    "Quote Rejected",
+    "Visit Scheduled",
+    "In Progress",
+    "Completed",
+    "Lost",
 ]
 OPEN_STAGES = ["New", "Quote Draft", "Quote Sent", "Quote Accepted", "Visit Scheduled", "In Progress"]
 SOURCES = ["phone", "website", "email", "text", "referral", "other"]
@@ -113,8 +119,8 @@ class QuoteUpdate(BaseModel):
 
 class VisitCreate(BaseModel):
     technician: str
-    date: str   # YYYY-MM-DD
-    time: str   # HH:MM
+    date: str  # YYYY-MM-DD
+    time: str  # HH:MM
     notes: str = ""
 
 
@@ -178,8 +184,7 @@ def serialize_job(doc: dict) -> dict:
         "completion": doc.get("completion", None),
         "days_waiting": days_waiting,
         "days_since_contact": days_since_contact,
-        "is_quiet": stage in OPEN_STAGES
-        and secs_since_contact >= QUIET_DAYS * 86400,
+        "is_quiet": stage in OPEN_STAGES and secs_since_contact >= QUIET_DAYS * 86400,
     }
 
 
@@ -393,12 +398,14 @@ async def send_quote(job_id: str):
     n = now_utc()
     await db.jobs.update_one(
         {"id": job_id},
-        {"$set": {
-            "quote.status": "sent",
-            "quote.sent_at": iso(n),
-            "stage": "Quote Sent",
-            "last_contact_at": iso(n),
-        }},
+        {
+            "$set": {
+                "quote.status": "sent",
+                "quote.sent_at": iso(n),
+                "stage": "Quote Sent",
+                "last_contact_at": iso(n),
+            }
+        },
     )
     doc = await get_job_or_404(job_id)
     return serialize_job(doc)
@@ -412,12 +419,14 @@ async def accept_quote(job_id: str):
     n = now_utc()
     await db.jobs.update_one(
         {"id": job_id},
-        {"$set": {
-            "quote.status": "accepted",
-            "quote.responded_at": iso(n),
-            "stage": "Quote Accepted",
-            "last_contact_at": iso(n),
-        }},
+        {
+            "$set": {
+                "quote.status": "accepted",
+                "quote.responded_at": iso(n),
+                "stage": "Quote Accepted",
+                "last_contact_at": iso(n),
+            }
+        },
     )
     doc = await get_job_or_404(job_id)
     return serialize_job(doc)
@@ -431,12 +440,14 @@ async def reject_quote(job_id: str):
     n = now_utc()
     await db.jobs.update_one(
         {"id": job_id},
-        {"$set": {
-            "quote.status": "rejected",
-            "quote.responded_at": iso(n),
-            "stage": "Quote Rejected",
-            "last_contact_at": iso(n),
-        }},
+        {
+            "$set": {
+                "quote.status": "rejected",
+                "quote.responded_at": iso(n),
+                "stage": "Quote Rejected",
+                "last_contact_at": iso(n),
+            }
+        },
     )
     doc = await get_job_or_404(job_id)
     return serialize_job(doc)
@@ -520,8 +531,8 @@ SYSTEM_PROMPT = (
     "address: string or null (service or business address)\n"
     "problem: string or null (a concise summary of what is broken, what was diagnosed, "
     "or what repair is needed)\n"
-    "equipment_type: string or null (one of: \"walk-in-cooler\", \"freezer\", \"ice-machine\", \"other\" "
-    "— pick the closest match, use \"other\" for refrigerators, display cases, etc.)\n"
+    'equipment_type: string or null (one of: "walk-in-cooler", "freezer", "ice-machine", "other" '
+    '— pick the closest match, use "other" for refrigerators, display cases, etc.)\n'
     "customer_remarks: string or null (any special requests, timing constraints, or follow-up notes "
     "from the customer)\n"
     "Never invent missing values; use null when absent. For transcripts, synthesize the conversation "
@@ -617,8 +628,9 @@ async def get_dashboard():
     insight_text = "Loading insights..."
     if summary_data:
         prompt = (
-            "Here are my active HVAC/Refrigeration jobs:\n" + "\n".join(summary_data) +
-            "\n\nGive me 3-4 bullet points (plain text, no markdown) on what to prioritize today. "
+            "Here are my active HVAC/Refrigeration jobs:\n"
+            + "\n".join(summary_data)
+            + "\n\nGive me 3-4 bullet points (plain text, no markdown) on what to prioritize today. "
             "Be specific with customer names. Include revenue at risk if quotes are stale."
         )
         chat = LlmChat(
@@ -628,7 +640,7 @@ async def get_dashboard():
                 "You are a smart assistant for an HVAC/Refrigeration business owner. "
                 "Be direct, actionable, and mention specific customer names. "
                 "No markdown. Use plain bullet points with •."
-            )
+            ),
         ).with_model("openai", "gpt-4o-mini")
         try:
             raw = await chat.send_message(UserMessage(text=prompt))
@@ -654,88 +666,238 @@ async def seed_jobs():
 
     samples = [
         # New — just came in, needs quote
-        {"customer_name": "Green Leaf Market", "phone": "(971) 555-0110", "email": "info@greenleaf.com",
-         "address": "820 NW 23rd Ave, Portland", "problem": "Reach-in cooler door seal torn, condensation",
-         "equipment_type": "walk-in-cooler", "preferred_contact": "phone", "customer_remarks": "",
-         "source": "website", "note": "Website form, wants estimate ASAP", "stage": "New",
-         "created_at": ago(0, 3), "last_contact_at": ago(0, 3), "contacts": [],
-         "quote": None, "visit": None, "completion": None},
+        {
+            "customer_name": "Green Leaf Market",
+            "phone": "(971) 555-0110",
+            "email": "info@greenleaf.com",
+            "address": "820 NW 23rd Ave, Portland",
+            "problem": "Reach-in cooler door seal torn, condensation",
+            "equipment_type": "walk-in-cooler",
+            "preferred_contact": "phone",
+            "customer_remarks": "",
+            "source": "website",
+            "note": "Website form, wants estimate ASAP",
+            "stage": "New",
+            "created_at": ago(0, 3),
+            "last_contact_at": ago(0, 3),
+            "contacts": [],
+            "quote": None,
+            "visit": None,
+            "completion": None,
+        },
         # New — 1 day old
-        {"customer_name": "Harbor Seafood Co.", "phone": "(503) 555-0163", "email": "",
-         "address": "1400 SE Water Ave", "problem": "Freezer fan making loud noise",
-         "equipment_type": "freezer", "preferred_contact": "text", "customer_remarks": "Texted this morning",
-         "source": "text", "note": "Needs callback", "stage": "New",
-         "created_at": ago(1), "last_contact_at": ago(1), "contacts": [],
-         "quote": None, "visit": None, "completion": None},
+        {
+            "customer_name": "Harbor Seafood Co.",
+            "phone": "(503) 555-0163",
+            "email": "",
+            "address": "1400 SE Water Ave",
+            "problem": "Freezer fan making loud noise",
+            "equipment_type": "freezer",
+            "preferred_contact": "text",
+            "customer_remarks": "Texted this morning",
+            "source": "text",
+            "note": "Needs callback",
+            "stage": "New",
+            "created_at": ago(1),
+            "last_contact_at": ago(1),
+            "contacts": [],
+            "quote": None,
+            "visit": None,
+            "completion": None,
+        },
         # Quote Sent — waiting for response (gone quiet, 4 days since contact)
-        {"customer_name": "Mario's Trattoria", "phone": "(503) 555-0182", "email": "mario@trattoria.com",
-         "address": "2345 NE Broadway, Portland", "problem": "Walk-in freezer not holding temp, food at risk",
-         "equipment_type": "freezer", "preferred_contact": "phone", "customer_remarks": "",
-         "source": "phone", "note": "Friday rush job", "stage": "Quote Sent",
-         "created_at": ago(6), "last_contact_at": ago(4), "contacts": [],
-         "quote": {"amount": 1450, "description": "Replace compressor and check refrigerant levels",
-                   "customer_remarks": "", "notes": "Parts may take 1 day to arrive",
-                   "status": "sent", "created_at": ago(5), "sent_at": ago(4), "responded_at": None},
-         "visit": None, "completion": None},
+        {
+            "customer_name": "Mario's Trattoria",
+            "phone": "(503) 555-0182",
+            "email": "mario@trattoria.com",
+            "address": "2345 NE Broadway, Portland",
+            "problem": "Walk-in freezer not holding temp, food at risk",
+            "equipment_type": "freezer",
+            "preferred_contact": "phone",
+            "customer_remarks": "",
+            "source": "phone",
+            "note": "Friday rush job",
+            "stage": "Quote Sent",
+            "created_at": ago(6),
+            "last_contact_at": ago(4),
+            "contacts": [],
+            "quote": {
+                "amount": 1450,
+                "description": "Replace compressor and check refrigerant levels",
+                "customer_remarks": "",
+                "notes": "Parts may take 1 day to arrive",
+                "status": "sent",
+                "created_at": ago(5),
+                "sent_at": ago(4),
+                "responded_at": None,
+            },
+            "visit": None,
+            "completion": None,
+        },
         # Quote Accepted — needs scheduling (gone quiet, 3 days)
-        {"customer_name": "Sunrise Diner", "phone": "(503) 555-0147", "email": "sunrise@diner.com",
-         "address": "8901 SE Division St", "problem": "Ice machine leaking, low ice output",
-         "equipment_type": "ice-machine", "preferred_contact": "phone",
-         "customer_remarks": "Need it before weekend rush",
-         "source": "referral", "note": "Approved verbally, waiting to book tech", "stage": "Quote Accepted",
-         "created_at": ago(5), "last_contact_at": ago(3), "contacts": [],
-         "quote": {"amount": 620, "description": "Replace water inlet valve and clean condenser",
-                   "customer_remarks": "Need it before weekend rush", "notes": "",
-                   "status": "accepted", "created_at": ago(4), "sent_at": ago(4), "responded_at": ago(3)},
-         "visit": None, "completion": None},
+        {
+            "customer_name": "Sunrise Diner",
+            "phone": "(503) 555-0147",
+            "email": "sunrise@diner.com",
+            "address": "8901 SE Division St",
+            "problem": "Ice machine leaking, low ice output",
+            "equipment_type": "ice-machine",
+            "preferred_contact": "phone",
+            "customer_remarks": "Need it before weekend rush",
+            "source": "referral",
+            "note": "Approved verbally, waiting to book tech",
+            "stage": "Quote Accepted",
+            "created_at": ago(5),
+            "last_contact_at": ago(3),
+            "contacts": [],
+            "quote": {
+                "amount": 620,
+                "description": "Replace water inlet valve and clean condenser",
+                "customer_remarks": "Need it before weekend rush",
+                "notes": "",
+                "status": "accepted",
+                "created_at": ago(4),
+                "sent_at": ago(4),
+                "responded_at": ago(3),
+            },
+            "visit": None,
+            "completion": None,
+        },
         # Quote Accepted — just approved today
-        {"customer_name": "Downtown Cafe", "phone": "(503) 555-0199", "email": "",
-         "address": "120 SW 3rd Ave", "problem": "Walk-in cooler thermostat replacement",
-         "equipment_type": "walk-in-cooler", "preferred_contact": "phone",
-         "customer_remarks": "Wants Thursday",
-         "source": "phone", "note": "Said yes to $620 quote", "stage": "Quote Accepted",
-         "created_at": ago(2), "last_contact_at": ago(0, 2),
-         "contacts": [{"kind": "call", "detail": "Approved quote", "at": ago(0, 2)}],
-         "quote": {"amount": 620, "description": "Replace thermostat unit and calibrate",
-                   "customer_remarks": "Wants Thursday", "notes": "",
-                   "status": "accepted", "created_at": ago(2), "sent_at": ago(2), "responded_at": ago(0, 2)},
-         "visit": None, "completion": None},
+        {
+            "customer_name": "Downtown Cafe",
+            "phone": "(503) 555-0199",
+            "email": "",
+            "address": "120 SW 3rd Ave",
+            "problem": "Walk-in cooler thermostat replacement",
+            "equipment_type": "walk-in-cooler",
+            "preferred_contact": "phone",
+            "customer_remarks": "Wants Thursday",
+            "source": "phone",
+            "note": "Said yes to $620 quote",
+            "stage": "Quote Accepted",
+            "created_at": ago(2),
+            "last_contact_at": ago(0, 2),
+            "contacts": [{"kind": "call", "detail": "Approved quote", "at": ago(0, 2)}],
+            "quote": {
+                "amount": 620,
+                "description": "Replace thermostat unit and calibrate",
+                "customer_remarks": "Wants Thursday",
+                "notes": "",
+                "status": "accepted",
+                "created_at": ago(2),
+                "sent_at": ago(2),
+                "responded_at": ago(0, 2),
+            },
+            "visit": None,
+            "completion": None,
+        },
         # Quote Draft — recently created, not yet sent
-        {"customer_name": "Pino's Pizzeria", "phone": "(971) 555-0124", "email": "pino@pizzeria.com",
-         "address": "456 N Williams Ave", "problem": "Prep table cooler warm",
-         "equipment_type": "walk-in-cooler", "preferred_contact": "phone", "customer_remarks": "",
-         "source": "phone", "note": "Quoted $380 today, need to send", "stage": "Quote Draft",
-         "created_at": ago(0, 5), "last_contact_at": ago(0, 1), "contacts": [],
-         "quote": {"amount": 380, "description": "Replace thermostat sensor",
-                   "customer_remarks": "", "notes": "Quick fix, parts in stock",
-                   "status": "draft", "created_at": ago(0, 1), "sent_at": None, "responded_at": None},
-         "visit": None, "completion": None},
+        {
+            "customer_name": "Pino's Pizzeria",
+            "phone": "(971) 555-0124",
+            "email": "pino@pizzeria.com",
+            "address": "456 N Williams Ave",
+            "problem": "Prep table cooler warm",
+            "equipment_type": "walk-in-cooler",
+            "preferred_contact": "phone",
+            "customer_remarks": "",
+            "source": "phone",
+            "note": "Quoted $380 today, need to send",
+            "stage": "Quote Draft",
+            "created_at": ago(0, 5),
+            "last_contact_at": ago(0, 1),
+            "contacts": [],
+            "quote": {
+                "amount": 380,
+                "description": "Replace thermostat sensor",
+                "customer_remarks": "",
+                "notes": "Quick fix, parts in stock",
+                "status": "draft",
+                "created_at": ago(0, 1),
+                "sent_at": None,
+                "responded_at": None,
+            },
+            "visit": None,
+            "completion": None,
+        },
         # Visit Scheduled — booked for today
-        {"customer_name": "Riverside Brewpub", "phone": "(503) 555-0135", "email": "info@riversidebrew.com",
-         "address": "1590 N Interstate Ave", "problem": "Keg cooler compressor swap",
-         "equipment_type": "walk-in-cooler", "preferred_contact": "email", "customer_remarks": "",
-         "source": "referral", "note": "Tech booked", "stage": "Visit Scheduled",
-         "created_at": ago(3), "last_contact_at": ago(0, 6), "contacts": [],
-         "quote": {"amount": 1200, "description": "Compressor replacement for keg cooler",
-                   "customer_remarks": "", "notes": "",
-                   "status": "accepted", "created_at": ago(3), "sent_at": ago(3), "responded_at": ago(2)},
-         "visit": {"technician": "Mike", "date": now_utc().strftime("%Y-%m-%d"), "time": "09:00",
-                   "notes": "Bring compressor unit", "created_at": ago(0, 6)},
-         "completion": None},
+        {
+            "customer_name": "Riverside Brewpub",
+            "phone": "(503) 555-0135",
+            "email": "info@riversidebrew.com",
+            "address": "1590 N Interstate Ave",
+            "problem": "Keg cooler compressor swap",
+            "equipment_type": "walk-in-cooler",
+            "preferred_contact": "email",
+            "customer_remarks": "",
+            "source": "referral",
+            "note": "Tech booked",
+            "stage": "Visit Scheduled",
+            "created_at": ago(3),
+            "last_contact_at": ago(0, 6),
+            "contacts": [],
+            "quote": {
+                "amount": 1200,
+                "description": "Compressor replacement for keg cooler",
+                "customer_remarks": "",
+                "notes": "",
+                "status": "accepted",
+                "created_at": ago(3),
+                "sent_at": ago(3),
+                "responded_at": ago(2),
+            },
+            "visit": {
+                "technician": "Mike",
+                "date": now_utc().strftime("%Y-%m-%d"),
+                "time": "09:00",
+                "notes": "Bring compressor unit",
+                "created_at": ago(0, 6),
+            },
+            "completion": None,
+        },
         # Completed
-        {"customer_name": "Maple Street Bakery", "phone": "(503) 555-0171", "email": "",
-         "address": "2200 SE Hawthorne Blvd", "problem": "Display case fan motor",
-         "equipment_type": "other", "preferred_contact": "phone", "customer_remarks": "",
-         "source": "phone", "note": "Completed, invoiced", "stage": "Completed",
-         "created_at": ago(8), "last_contact_at": ago(1), "contacts": [],
-         "quote": {"amount": 450, "description": "Replace fan motor in display case",
-                   "customer_remarks": "", "notes": "",
-                   "status": "accepted", "created_at": ago(7), "sent_at": ago(7), "responded_at": ago(6)},
-         "visit": {"technician": "Dave", "date": (n - timedelta(days=2)).strftime("%Y-%m-%d"),
-                   "time": "14:00", "notes": "", "created_at": ago(5)},
-         "completion": {"completed_at": ago(1), "technician": "Dave",
-                        "work_performed": "Replaced fan motor, tested operation",
-                        "notes": "Customer happy", "customer_remarks": "", "final_amount": 450}},
+        {
+            "customer_name": "Maple Street Bakery",
+            "phone": "(503) 555-0171",
+            "email": "",
+            "address": "2200 SE Hawthorne Blvd",
+            "problem": "Display case fan motor",
+            "equipment_type": "other",
+            "preferred_contact": "phone",
+            "customer_remarks": "",
+            "source": "phone",
+            "note": "Completed, invoiced",
+            "stage": "Completed",
+            "created_at": ago(8),
+            "last_contact_at": ago(1),
+            "contacts": [],
+            "quote": {
+                "amount": 450,
+                "description": "Replace fan motor in display case",
+                "customer_remarks": "",
+                "notes": "",
+                "status": "accepted",
+                "created_at": ago(7),
+                "sent_at": ago(7),
+                "responded_at": ago(6),
+            },
+            "visit": {
+                "technician": "Dave",
+                "date": (n - timedelta(days=2)).strftime("%Y-%m-%d"),
+                "time": "14:00",
+                "notes": "",
+                "created_at": ago(5),
+            },
+            "completion": {
+                "completed_at": ago(1),
+                "technician": "Dave",
+                "work_performed": "Replaced fan motor, tested operation",
+                "notes": "Customer happy",
+                "customer_remarks": "",
+                "final_amount": 450,
+            },
+        },
     ]
     for s in samples:
         s["id"] = str(uuid.uuid4())
@@ -748,7 +910,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
