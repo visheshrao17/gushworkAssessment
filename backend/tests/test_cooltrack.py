@@ -1,23 +1,27 @@
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-import pytest
-from fastapi.testclient import TestClient
-from server import app
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from server import app  # noqa: E402
 
 API = "/api"
+
 
 @pytest.fixture(scope="module")
 def s():
     with TestClient(app) as client:
         yield client
 
+
 # -------- Health --------
 def test_root(s):
     r = s.get(f"{API}/")
     assert r.status_code == 200
     assert "CoolTrack" in r.json().get("message", "")
+
 
 # -------- Call Today --------
 def test_call_today_buckets(s):
@@ -27,6 +31,7 @@ def test_call_today_buckets(s):
     for k in ("new_requests", "pending_quotes", "needs_scheduling", "todays_visits", "gone_quiet", "total"):
         assert k in data
     assert type(data["total"]) is int
+
 
 # -------- Jobs list / filter --------
 def test_jobs_list_and_filter(s):
@@ -42,6 +47,7 @@ def test_jobs_list_and_filter(s):
     quoted = r2.json()
     assert all(j["stage"] == "Quote Sent" for j in quoted)
 
+
 # -------- Dashboard --------
 def test_dashboard(s):
     r = s.get(f"{API}/dashboard")
@@ -51,8 +57,18 @@ def test_dashboard(s):
     assert "insight_text" in c
     for k in ("total_jobs", "open_jobs", "completed_jobs", "by_stage"):
         assert k in c["stats"]
-    for st in ("New", "Quote Draft", "Quote Sent", "Quote Accepted", "Visit Scheduled", "In Progress", "Completed", "Lost"):
+    for st in (
+        "New",
+        "Quote Draft",
+        "Quote Sent",
+        "Quote Accepted",
+        "Visit Scheduled",
+        "In Progress",
+        "Completed",
+        "Lost",
+    ):
         assert st in c["stats"]["by_stage"]
+
 
 # -------- CRUD + stage advance + contact clears quiet --------
 def test_create_advance_contact_flow(s):
@@ -88,13 +104,14 @@ def test_create_advance_contact_flow(s):
     assert out["is_quiet"] is False
     assert len(out["contacts"]) == 1
 
+
 def test_parse_blank_422(s):
     r = s.post(f"{API}/parse", json={"text": ""})
     assert r.status_code == 422
+
 
 def test_invalid_job_404(s):
     r = s.patch(f"{API}/jobs/nope-xyz/stage", json={"stage": "Quote Sent"})
     assert r.status_code == 404
     r2 = s.post(f"{API}/jobs/nope-xyz/contact", json={"kind": "call", "detail": ""})
     assert r2.status_code == 404
-
