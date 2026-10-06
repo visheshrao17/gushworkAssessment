@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional
+
 
 # ---- Models ----
 class JobCreate(BaseModel):
@@ -87,5 +87,3 @@ class ParsedFields(BaseModel):
     problem: Optional[str] = None
     equipment_type: Optional[str] = None
     customer_remarks: Optional[str] = None
-
-

@@ -39,7 +39,9 @@ class LlmChat:
 
         url = "https://openrouter.ai/api/v1/chat/completions"
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload) as resp:
+            async with session.post(
+                url, headers=headers, json=payload
+            ) as resp:
                 if resp.status != 200:
                     text = await resp.text()
                     logger.error(f"OpenAI error: {resp.status} {text}")
